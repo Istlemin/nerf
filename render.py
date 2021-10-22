@@ -4,8 +4,8 @@ from evaluate_model import evaluate_model
 
 t_n = 2
 t_f = 6
-N_c = 64
-N_f = 128
+N_c = 32
+N_f = 64
 
 
 def bin_random(num_rays, num_bins, t_n, t_f, device="cpu"):
@@ -44,13 +44,31 @@ def render(rays, N, t, model, device="cpu"):
     return C, w
 
 
-def render_rays(rays, coarse_model, model, device="cpu"):
+def render_rays(rays, coarse_model, fine_model, device="cpu"):
     num_rays = len(rays[0])
 
     coarse_t = bin_random(num_rays, N_c, t_n, t_f, device=device)
     torch.cuda.synchronize()
 
+    # Course render
     C_c, w = render(rays, N_c, coarse_t, coarse_model, device=device)
     torch.cuda.synchronize()
 
-    return C_c
+    bin_start = torch.zeros_like(coarse_t)
+    bin_end = torch.zeros_like(coarse_t)
+    bin_end[:,-1] = t_f
+    bin_start[:,0] = t_n
+    bin_start[:,1:] = bin_end[:,:-1] = (coarse_t[:,:-1]+coarse_t[:,1:])/2
+
+    prob = (bin_end-bin_start)*w
+
+    chosen_bin_inds = torch.distributions.Categorical(prob).sample((N_f,)).sort(dim=0)[0].T
+    chosen_bin_starts = bin_start[torch.arange(num_rays,device=device).repeat_interleave(N_f), chosen_bin_inds.flatten()]
+    chosen_bin_ends = bin_end[torch.arange(num_rays,device=device).repeat_interleave(N_f), chosen_bin_inds.flatten()]
+    x = torch.rand(chosen_bin_starts.shape,device=device)
+    fine_t = chosen_bin_starts + x*(chosen_bin_ends-chosen_bin_starts)
+    fine_t = fine_t.reshape((num_rays,N_f))
+
+    C_f, w = render(rays, N_f, fine_t, fine_model, device=device)
+
+    return C_c, C_f
