@@ -6,14 +6,14 @@ import numpy as np
 import torch
 
 
-def get_c2ws_imgs(path):
+def get_c2ws_imgs(path, image_size):
     frames = json.load(open(path + "transforms_train.json", "r"))["frames"]
     c2ws = []
     imgs = []
     for f in frames:
         img = cv2.imread(path + f["file_path"][2:] + ".png")[:, :, ::-1]
-        img = cv2.resize(img, (200, 200))
-        imgs.append(img)
+        img = cv2.resize(img, (image_size, image_size))
+        imgs.append(np.float32(img)/255)
         c2ws.append(f["transform_matrix"])
 
     return c2ws, imgs
@@ -39,8 +39,8 @@ def c2w_to_rays(c2w, width, height):
     return origins, dirs
 
 
-def load_dataset(path):
-    c2ws, imgs = get_c2ws_imgs(path)
+def load_dataset(path, image_size):
+    c2ws, imgs = get_c2ws_imgs(path, image_size)
 
     all_origins = []
     all_dirs = []
