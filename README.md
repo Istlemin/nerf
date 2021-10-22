@@ -10,7 +10,7 @@ You can run`main.ipynb` to train the model and to synthetize novel views.
 
 ![image-20211022123940714](images/image-20211022123940714.png) 
 
-# Citation
+## Citation
 
  ```
 @misc{mildenhall2020nerf,
