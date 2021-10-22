@@ -4,11 +4,11 @@ This is a personal project to reimplement the NeRF paper in pytorch just for fun
 
 You can run`main.ipynb` to train the model and to synthetize novel views.
 
-![image-20211022124027300](C:\Users\fredr\AppData\Roaming\Typora\typora-user-images\image-20211022124027300.png)
+![image-20211022124027300](images/image-20211022124027300.png)
 
 
 
-![image-20211022123940714](C:\Users\fredr\AppData\Roaming\Typora\typora-user-images\image-20211022123940714.png) 
+![image-20211022123940714](images/image-20211022123940714.png) 
 
 # Citation
 
