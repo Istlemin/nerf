@@ -1,10 +1,8 @@
 import torch
 
-from evaluate_model import evaluate_model
-
-t_n = 2
-t_f = 6
-N_c = 32
+t_n = 1
+t_f = 7
+N_c = 200
 N_f = 64
 
 
@@ -13,7 +11,6 @@ def bin_random(num_rays, num_bins, t_n, t_f, device="cpu"):
     t += torch.rand((num_rays, num_bins), device=device) * (t_f - t_n) / num_bins
     return t
 
-
 def render(rays, N, t, model, device="cpu"):
     origins, dirs = rays
 
@@ -21,8 +18,12 @@ def render(rays, N, t, model, device="cpu"):
     points = origins.reshape((-1, 1, 3)) + dirs.reshape((-1, 1, 3)) * t.reshape((-1, N, 1))
     view_dirs = torch.zeros_like(points) + dirs.reshape((-1, 1, 3))
     torch.cuda.synchronize()
-    c, density = evaluate_model(
-        points.reshape((-1, 3)), view_dirs.reshape((-1, 3)), model, device=device
+
+    #print(points.min(dim=0)[0].min(dim=0))
+    #print(points.max(dim=0)[0].max(dim=0))
+    
+    c, density = model(
+        points.reshape((-1, 3)), view_dirs.reshape((-1, 3)), device=device
     )
     torch.cuda.synchronize()
     c = c.reshape((-1, N, 3))
@@ -43,8 +44,15 @@ def render(rays, N, t, model, device="cpu"):
     torch.cuda.synchronize()
     return C, w
 
+def render_rays(rays, model, device="cpu"):
+    num_rays = len(rays[0])
+    
+    coarse_t = bin_random(num_rays, N_c, t_n, t_f, device=device)
+    torch.cuda.synchronize()
+    C_c, w = render(rays, N_c, coarse_t, model, device=device)
+    return C_c
 
-def render_rays(rays, coarse_model, fine_model, device="cpu"):
+def render_rays_hierarchal(rays, coarse_model, fine_model, device="cpu"):
     num_rays = len(rays[0])
 
     coarse_t = bin_random(num_rays, N_c, t_n, t_f, device=device)
@@ -61,6 +69,7 @@ def render_rays(rays, coarse_model, fine_model, device="cpu"):
     bin_start[:,1:] = bin_end[:,:-1] = (coarse_t[:,:-1]+coarse_t[:,1:])/2
 
     prob = (bin_end-bin_start)*w
+    prob = torch.maximum(prob,torch.tensor(0.000001,device=device))
 
     chosen_bin_inds = torch.distributions.Categorical(prob).sample((N_f,)).sort(dim=0)[0].T
     chosen_bin_starts = bin_start[torch.arange(num_rays,device=device).repeat_interleave(N_f), chosen_bin_inds.flatten()]
